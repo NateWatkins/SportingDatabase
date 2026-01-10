@@ -1,6 +1,6 @@
 import env
 from HTTPHelper import send_request
-from funcHelper import build_url, get_player_season_row, build_season_list
+from funcHelper import build_url, get_player_season_row, build_season_list,get_player_season_row_detail
 env.load()
 import json
 token = env.get("SPORTMONKS_API_TOKEN")
@@ -19,13 +19,13 @@ filters = None
 
 
 #Functions:
-#build_url              - Given base resource include filter strings    ->  returns HTTP String ready to send
-#get_player_season_row  - Given Season_id, player_id                    ->  returns player/Season row of statistics
-#build_season_list      - Given a player_id                             ->  returns list of seasons
+#build_url              - Given base resource include filter strings            ->  returns HTTP String ready to send                                   seasonPlayerRow = get_player_season_row(player_id, season_id, token)
+#get_player_season_row  - Given Season_id, player_id, token                     ->  returns player/Season row of statistics
+#build_season_list      - Given Response Body of player-season                  ->  returns list of seasons    
+#Has_values             - Given Response Body looks for has_value               ->  returns boolean of has_value
+#build_season_stat_list - Given player_id, season_list                          -> returns 2D list of statistics per player_season 
+#get_player_season_row_detail(player_id, season_id,token)                       -> returns the details of the player-season-row
 
-
-
-#seasonPlayerRow = get_player_season_row(player_id, season_id, token)
 
 ul = build_url(base, resource, token, include, filters)
 data = send_request(ul) 
@@ -34,7 +34,28 @@ data = send_request(ul)
 
 
 
-
 player_seasons = build_season_list(data)
 
-print(player_seasons)
+
+
+
+# print(get_player_season_row_detail(player_id, season_id,token))
+
+
+def build_season_stat_list(player_id, season_list,token):
+    player_career_stats = []
+    
+    for season in season_list:
+        rowVal = get_player_season_row_detail(player_id,season, token)
+        rowVal['data']['statistics'][0]['has_values']
+        if(rowVal['data']['statistics'][0]['has_values'] == True):
+            player_career_stats.append(get_player_season_row(player_id, season,token))
+        else:
+            print("nah son")
+    return player_career_stats
+
+
+# rowVal = get_player_season_row_detail(player_id,season_id, token)
+# print(rowVal['data']['statistics'][0]['has_values'])
+player_table = build_season_stat_list(player_id,player_seasons,token)
+print(player_table)
