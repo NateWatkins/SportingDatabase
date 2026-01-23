@@ -1,5 +1,8 @@
 # create_tables.py
 from dbhelper import connect_db
+
+
+
 def reset_tables(conn):
     cur = conn.cursor()
 

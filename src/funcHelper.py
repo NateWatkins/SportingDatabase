@@ -30,7 +30,7 @@ base = "https://api.sportmonks.com/v3/football/"
 # get_player_season_list(player_id, token) -> list[season_id]
 #     # High-level season discovery: calls API once (no season filter), then uses build_season_list to return all seasons where this player has stats.
 
-
+###--------------URL's
 
 def build_player_season_stats_url(player_id, season_id = None,resource = None, include = None, filters = None):
     if resource == None: resource = f"players/{player_id}"
@@ -39,8 +39,12 @@ def build_player_season_stats_url(player_id, season_id = None,resource = None, i
         filters = f"playerStatisticSeasons:{season_id}"
     return build_url(base, resource, token, include, filters)
 
+def build_player_description_url(player_id):
+    resource = f"players/{player_id}"
+    return build_url(base, resource, token, None, None)
 
-
+###---------------------------------
+###------ API Caller's -------------
 def get_player_season_row(player_id, season_id, token):
     url = build_player_season_stats_url(player_id, season_id)
     response = send_request(url)
@@ -111,6 +115,55 @@ def get_player_season_row(player_id, season_id, token):
     ]
     return team_id, row
 
+
+
+def get_player_description_row(player_id, token):
+    url = build_player_description_url(player_id)
+    response = send_request(url)
+    data = response["data"]
+
+    player_id   = data["id"]
+    first_name  = data.get("firstname")
+    last_name   = data.get("lastname")
+    display_name = data.get("display_name") or data.get("name")
+
+    country = None
+    country_data = data.get("country")
+    if isinstance(country_data, dict):
+        country = country_data.get("name")
+
+    return [
+        player_id,
+        first_name,
+        last_name,
+        display_name,
+        country,
+    ]
+
+
+
+
+
+
+##--------Inserts--------------------
+
+def insert_player(cur, player_id, token):
+    row = get_player_description_row(player_id, token)
+    cur.execute(PLAYER_INSERT, row)
+
+
+
+
+
+
+
+
+##----------Checks-------------------
+
+
+
+
+
 #Mainly A Debugging function
 def get_player_season_row_detail(player_id, season_id, token):
     url = build_player_season_stats_url(player_id, season_id, None, None, f"playerStatisticSeasons:{season_id}")
@@ -152,9 +205,9 @@ def build_season_list(data):
     return season_list
 
 
+
 def get_player_season_list(player_id, token):
     url = build_player_season_stats_url(player_id)
     response = send_request(url)
-    print(response)
     data = response
     return build_season_list(data)

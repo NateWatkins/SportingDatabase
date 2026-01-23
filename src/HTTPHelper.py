@@ -3,6 +3,8 @@ import json
 
 cache = {}
 
+
+
 def send_request(url):
     if url in cache:
         return cache[url]

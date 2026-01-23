@@ -12,7 +12,7 @@ from dbhelper import connect_db
 token = env.get("SPORTMONKS_API_TOKEN")
 
 player_id = 52296
-# season_id = 16036
+season_id = 16036
 teamId = 20
 
 base = "https://api.sportmonks.com/v3/football/"
@@ -59,6 +59,7 @@ data = send_request(ul)
 
 conn = connect_db("postgres", "natwat", "")
 cur = conn.cursor()
+print(get_player_season_row_detail(player_id,season_id, token))
 
 upload_player_seasons_stats(cur, 52296, token)
 

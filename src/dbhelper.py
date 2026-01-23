@@ -69,6 +69,24 @@ PLAYER_SEASON_INSERT = """
     DO NOTHING;
 """
 
+PLAYER_INSERT = """
+    INSERT INTO players (
+        player_id,
+        first_name,
+        last_name,
+        display_name,
+        country
+    ) VALUES (
+        %s, %s, %s, %s, %s
+    )
+    ON CONFLICT (player_id)
+    DO NOTHING;
+"""
+
+
+
+
+
 
 
 def insert_player_season(cur, player_id, season_id, token):
@@ -82,7 +100,7 @@ def upload_player_seasons_stats(cur, player_id, token):
     season_list = get_player_season_list(player_id, token)
     for season_id in season_list:
         insert_player_season(cur, player_id, season_id, token)
-    
+
 
 
 
