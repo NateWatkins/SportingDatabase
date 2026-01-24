@@ -1,6 +1,6 @@
 import env
 from HTTPHelper import send_request
-from funcHelper import build_url, get_player_season_row, build_season_list,get_player_season_row_detail
+from funcHelper import build_url, get_player_season_row, build_season_list,get_player_season_row_detail, insert_player
 env.load()
 import json
 from dbhelper import upload_player_seasons_stats
@@ -59,9 +59,10 @@ data = send_request(ul)
 
 conn = connect_db("postgres", "natwat", "")
 cur = conn.cursor()
+print(insert_player(cur,player_id,token))
 print(get_player_season_row_detail(player_id,season_id, token))
 
-upload_player_seasons_stats(cur, 52296, token)
+# upload_player_seasons_stats(cur, 52296, token)
 
 conn.commit()
 

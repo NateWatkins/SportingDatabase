@@ -142,6 +142,19 @@ def get_player_description_row(player_id, token):
 
 
 
+PLAYER_INSERT = """
+    INSERT INTO players (
+        player_id,
+        first_name,
+        last_name,
+        display_name,
+        country
+    ) VALUES (
+        %s, %s, %s, %s, %s
+    )
+    ON CONFLICT (player_id)
+    DO NOTHING;
+"""
 
 
 
@@ -150,7 +163,7 @@ def get_player_description_row(player_id, token):
 def insert_player(cur, player_id, token):
     row = get_player_description_row(player_id, token)
     cur.execute(PLAYER_INSERT, row)
-
+    print("executed")
 
 
 
