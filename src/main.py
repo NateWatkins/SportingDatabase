@@ -1,6 +1,6 @@
 import env
 from HTTPHelper import send_request
-from funcHelper import build_url, get_player_season_row, build_season_list,get_player_season_row_detail, insert_player
+from funcHelper import build_url, get_player_season_row, build_season_list,get_player_season_row_detail, insert_player, insert_league, insert_season,get_league_season_players,get_teams_for_season,insert_team,get_most_recent_season
 env.load()
 import json
 from dbhelper import upload_player_seasons_stats
@@ -59,10 +59,50 @@ data = send_request(ul)
 
 conn = connect_db("postgres", "natwat", "")
 cur = conn.cursor()
-print(insert_player(cur,player_id,token))
-print(get_player_season_row_detail(player_id,season_id, token))
+
+
+league_ids = [8]
+
+
+def build_all_description_tables(cur, league_ids, token):
+    for league_id in league_ids:
+        #league description
+        insert_league(cur, league_id, token)
+
+        #Get most recent season_id to build lineup -> Add to description table now
+        season_id = get_most_recent_season(league_id, token)
+        insert_season(cur, season_id, token)
+
+        #Get most recent 
+        teams = get_teams_for_season(season_id, token)
+        print("Teams in season", season_id, ":", len(teams))
+
+        #Description Table for all teams in the league
+        for team in teams:
+            team_id = team["id"]
+            insert_team(cur, team_id, league_id, token)
+
+
+        player_ids = get_league_season_players(league_id, token)
+        print("Players in league", league_id, ":", len(player_ids))
+
+        #Description table for all players
+        for player_id in player_ids:
+            insert_player(cur,player_id,token)
+            upload_player_seasons_stats(cur,conn,player_id,token)
+            print(f"_____-----__--__--_--_--_--_--__-__-__- Finished Player: {player_id}")
+        print("Finished league:", league_id)
+
+
+
+
+# print(get_player_season_row_detail(player_id,season_id, token))
 
 # upload_player_seasons_stats(cur, 52296, token)
+build_all_description_tables(cur,league_ids,token)
+
+
+
 
 conn.commit()
 

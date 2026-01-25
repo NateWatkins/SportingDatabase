@@ -30,7 +30,7 @@ base = "https://api.sportmonks.com/v3/football/"
 # get_player_season_list(player_id, token) -> list[season_id]
 #     # High-level season discovery: calls API once (no season filter), then uses build_season_list to return all seasons where this player has stats.
 
-###--------------URL's
+###--------------URL's---------------------------------------------------
 
 def build_player_season_stats_url(player_id, season_id = None,resource = None, include = None, filters = None):
     if resource == None: resource = f"players/{player_id}"
@@ -43,8 +43,28 @@ def build_player_description_url(player_id):
     resource = f"players/{player_id}"
     return build_url(base, resource, token, None, None)
 
+def build_league_seasons_url(league_id):
+    resource = f"leagues/{league_id}"
+    include = "seasons"
+    filters = None
+    return build_url(base, resource, token, include, filters)
+
+def build_teams_by_season_url(season_id):
+    resource = f"teams/seasons/{season_id}"
+    include = None
+    filters = None
+    return build_url(base, resource, token, include, filters)
+
+def build_team_squad_url(team_id, season_id):
+    resource = f"squads/seasons/{season_id}/teams/{team_id}"
+    include = None
+    filters = None
+    return build_url(base, resource, token, include, filters)
+
 ###---------------------------------
 ###------ API Caller's -------------
+
+
 def get_player_season_row(player_id, season_id, token):
     url = build_player_season_stats_url(player_id, season_id)
     response = send_request(url)
@@ -115,33 +135,84 @@ def get_player_season_row(player_id, season_id, token):
     ]
     return team_id, row
 
+#League -> most recent season_id
+def get_most_recent_season(league_id, token):
 
-
-def get_player_description_row(player_id, token):
-    url = build_player_description_url(player_id)
+    url = build_league_seasons_url(league_id)
     response = send_request(url)
     data = response["data"]
 
-    player_id   = data["id"]
-    first_name  = data.get("firstname")
-    last_name   = data.get("lastname")
-    display_name = data.get("display_name") or data.get("name")
+    seasons = data.get("seasons", []) or []
+    if not seasons:
+        raise ValueError(f"No seasons found for league {league_id}")
 
-    country = None
-    country_data = data.get("country")
-    if isinstance(country_data, dict):
-        country = country_data.get("name")
+    # try end_date, fall back to ending_at if needed
+    def season_key(s):
+        return s.get("end_date") or s.get("ending_at") or ""
 
-    return [
-        player_id,
-        first_name,
-        last_name,
-        display_name,
-        country,
-    ]
+    most_recent = max(seasons, key=season_key)
+    return most_recent["id"]
+
+#Season -> list of team dicts
+def get_teams_for_season(season_id, token):
+    """
+    Season -> list of team dicts
+    """
+    url = build_teams_by_season_url(season_id)
+    response = send_request(url)
+    return response.get("data", [])  # list of teams
+
+#Team + Season -> list of player_ids in that squad
+def get_team_squad_player_ids(team_id, season_id, token):
+
+    url = build_team_squad_url(team_id, season_id)
+    response = send_request(url)
+    rows = response.get("data", []) or []
+    return [row["player_id"] for row in rows]
+
+#League -> (current season) -> (all teams) -> (all squad player_ids)
+def get_league_season_players(league_id, token):
+
+    season_id = get_most_recent_season(league_id, token)
+    teams = get_teams_for_season(season_id, token)
+
+    player_ids = set()
+
+    for team in teams:
+        team_id = team["id"]
+        squad_players = get_team_squad_player_ids(team_id, season_id, token)
+        for pid in squad_players:
+            player_ids.add(pid)
+
+    return list(player_ids)
 
 
-
+###---------------------------------
+##Insert Statements
+LEAGUE_INSERT = """
+    INSERT INTO leagues (
+        league_id,
+        name,
+        country_id
+    ) VALUES (%s, %s, %s)
+    ON CONFLICT (league_id) DO UPDATE
+    SET name       = EXCLUDED.name,
+        country_id = EXCLUDED.country_id;
+"""
+SEASON_INSERT = """
+    INSERT INTO seasons (
+        season_id,
+        league_id,
+        name,
+        start_date,
+        end_date
+    ) VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (season_id) DO UPDATE
+    SET league_id  = EXCLUDED.league_id,
+        name       = EXCLUDED.name,
+        start_date = EXCLUDED.start_date,
+        end_date   = EXCLUDED.end_date;
+"""
 PLAYER_INSERT = """
     INSERT INTO players (
         player_id,
@@ -155,17 +226,137 @@ PLAYER_INSERT = """
     ON CONFLICT (player_id)
     DO NOTHING;
 """
+TEAM_INSERT = """
+    INSERT INTO teams (
+        team_id,
+        name,
+        league_id
+    ) VALUES (
+        %s, %s, %s
+    )
+    ON CONFLICT (team_id) DO NOTHING;
+"""
 
 
 
 ##--------Inserts--------------------
-
+##----------------------
+##Player Description Table
 def insert_player(cur, player_id, token):
     row = get_player_description_row(player_id, token)
     cur.execute(PLAYER_INSERT, row)
     print("executed")
+def get_player_description_row(player_id, token):
+    url = build_player_description_url(player_id)
+    response = send_request(url)
+    data = response["data"]
+    
+    player_id   = data["id"]
+    first_name  = data.get("firstname")
+    last_name   = data.get("lastname")
+    display_name = data.get("display_name") or data.get("name")
+    
+    country_data = data.get("nationality_id")
+    print("____----------______-----___---__---_---_--__")
+    print(data)
+    print("_------__----_--__--_--_______---__--_--_--_-")
+    if isinstance(country_data, dict):
+        country_data = country_data.get("name")
 
+    return [
+        player_id,
+        first_name,
+        last_name,
+        display_name,
+        country_data,
+    ]
+##Player Desription table
+##--------------------
+##League Description Table
+def build_league_description_url(league_id):
+    resource = f"leagues/{league_id}"
+    include = None
+    filters = None
+    return build_url(base, resource, token, include, filters)
+def get_league_description_row(league_id, token):
+    url = build_league_description_url(league_id)
+    response = send_request(url)
+    data = response["data"]
 
+    league_id  = data["id"]
+    name       = data.get("name")
+    country_id = data.get("country_id")  # raw ID, may be None
+
+    return [
+        league_id,
+        name,
+        country_id,
+    ]
+def insert_league(cur, league_id, token):
+    row = get_league_description_row(league_id, token)
+    cur.execute(LEAGUE_INSERT, row)
+    print("inserted league", league_id)
+##League Description Table
+##-----------------------
+##Season Description Table
+def build_season_description_url(season_id):
+    # e.g. GET /seasons/{season_id}
+    resource = f"seasons/{season_id}"
+    include = None
+    filters = None
+    return build_url(base, resource, token, include, filters)
+def get_season_description_row(season_id, token):
+    url = build_season_description_url(season_id)
+    response = send_request(url)
+    data = response["data"]
+
+    season_id  = data["id"]
+    league_id  = data.get("league_id")
+    name       = data.get("name")
+    # Sportmonks uses starting_at / ending_at timestamps – you can store as DATE or TIMESTAMP
+    start_date = data.get("starting_at")
+    end_date   = data.get("ending_at")
+
+    return [
+        season_id,
+        league_id,
+        name,
+        start_date,
+        end_date,
+    ]
+def insert_season(cur, season_id, token):
+    row = get_season_description_row(season_id, token)
+    cur.execute(SEASON_INSERT, row)
+    print("inserted season", season_id)
+##Season Description Table
+##---------------------
+##Team Description Table
+def build_team_description_url(team_id):
+    resource = f"teams/{team_id}"
+    include = None
+    filters = None
+    return build_url(base, resource, token, include, filters)
+def get_team_description_row(team_id, league_id, token):
+    url = build_team_description_url(team_id)
+    response = send_request(url)
+    data = response["data"]
+
+    team_id   = data["id"]
+    name      = data.get("name")
+
+    # league_id comes from the caller (you already know what league you're loading)
+    return [
+        team_id,
+        name,
+        league_id,
+    ]
+def insert_team(cur, team_id, league_id, token):
+    row = get_team_description_row(team_id, league_id, token)
+    cur.execute(TEAM_INSERT, row)
+    print("inserted team", team_id)
+
+##Team Description Table
+##--------------------
 
 
 
@@ -188,7 +379,7 @@ def get_player_season_row_detail(player_id, season_id, token):
 
 def build_url(base, resource, token, include=None, filters=None):
     url = f"{base}{resource}?api_token={token}"
-    print(url)
+    # print(url)
     if include:
         url += f"&include={include}"
     if filters:
@@ -217,6 +408,15 @@ def build_season_list(data):
 
     return season_list
 
+def get_league_for_season(season_id, token):
+    url = build_url(
+        base="https://api.sportmonks.com/v3/football/",
+        resource=f"seasons/{season_id}",
+        token=token
+    )
+    resp = send_request(url)
+    return resp["data"]["league_id"]
+
 
 
 def get_player_season_list(player_id, token):
@@ -224,3 +424,46 @@ def get_player_season_list(player_id, token):
     response = send_request(url)
     data = response
     return build_season_list(data)
+
+
+if __name__ == "__main__":
+    token = env.get("SPORTMONKS_API_TOKEN")  # or however you load it
+    league_id = 8   # Premier League for test
+
+    print("\n=== TEST 1: get_most_recent_season ===")
+    try:
+        season_id = get_most_recent_season(league_id, token)
+        print("Most recent season_id:", season_id)
+    except Exception as e:
+        print("ERROR:", e)
+
+    print("\n=== TEST 2: get_teams_for_season ===")
+    try:
+        teams = get_teams_for_season(season_id, token)
+        print("Team count:", len(teams))
+        print("First team sample:", teams[0] if teams else None)
+    except Exception as e:
+        print("ERROR:", e)
+
+    print("\n=== TEST 3: get_team_squad_player_ids ===")
+    if teams:
+        sample_team_id = teams[0]["id"]
+        print("Testing with team_id:", sample_team_id)
+        try:
+            squad_players = get_team_squad_player_ids(sample_team_id, season_id, token)
+            print("Squad player count:", len(squad_players))
+            print("Sample player_id(s):", squad_players[:10])
+        except Exception as e:
+            print("ERROR:", e)
+    else:
+        print("No teams available; skipping TEST 3")
+
+    print("\n=== TEST 4: get_league_season_players ===")
+    try:
+        player_ids = get_league_season_players(league_id, token)
+        print("Total unique players:", len(player_ids))
+        print("Sample player_ids:", player_ids[:20])
+    except Exception as e:
+        print("ERROR:", e)
+
+    print("\n=== ALL TESTS COMPLETED ===")

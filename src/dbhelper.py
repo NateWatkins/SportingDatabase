@@ -2,7 +2,7 @@
 
 import psycopg2
 import sys
-from funcHelper import get_player_season_list, get_player_season_row
+from funcHelper import get_player_season_list, get_player_season_row,insert_season,get_league_for_season,insert_league,insert_team
 
 
 # connect_db(db_name, user, password, host="localhost", port="5432") -> conn
@@ -82,24 +82,39 @@ PLAYER_INSERT = """
     ON CONFLICT (player_id)
     DO NOTHING;
 """
+SEASON_INSERT = """
+    INSERT INTO seasons (
+        season_id,
+        league_id,
+        name,
+        start_date,
+        end_date
+    ) VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (season_id) DO UPDATE
+    SET league_id  = EXCLUDED.league_id,
+        name       = EXCLUDED.name,
+        start_date = EXCLUDED.start_date,
+        end_date   = EXCLUDED.end_date;
+"""
 
 
 
-
-
-
-
-def insert_player_season(cur, player_id, season_id, token):
+def insert_player_season(cur, player_id, season_id, token,league_id):
     team_id, row = get_player_season_row(player_id, season_id, token)
+    insert_team(cur,team_id,league_id,token)
     params = [player_id, season_id, team_id] + row[1:]
     cur.execute(PLAYER_SEASON_INSERT, params)
 
-
-
-def upload_player_seasons_stats(cur, player_id, token):
+def upload_player_seasons_stats(cur,conn, player_id, token):
     season_list = get_player_season_list(player_id, token)
     for season_id in season_list:
-        insert_player_season(cur, player_id, season_id, token)
+        league_id = get_league_for_season(season_id, token)
+        insert_league(cur, league_id, token)  
+        insert_season(cur,season_id,token)
+        conn.commit()
+        insert_player_season(cur, player_id, season_id, token,league_id)
+        print(f"__--__--_- Finished Season: {season_id}")
+        
 
 
 

@@ -24,7 +24,8 @@ def create_tables(conn):
     cur.execute("""
         CREATE TABLE IF NOT EXISTS leagues (
             league_id   BIGINT PRIMARY KEY,
-            name        TEXT
+            name        TEXT,
+            country_id  BIGINT 
         );
     """)
 
