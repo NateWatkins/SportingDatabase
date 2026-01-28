@@ -61,10 +61,11 @@ conn = connect_db("postgres", "natwat", "")
 cur = conn.cursor()
 
 
-league_ids = [8]
+league_ids = [486]
 
 
 def build_all_description_tables(cur, league_ids, token):
+    seen_team_ids = set()
     for league_id in league_ids:
         #league description
         insert_league(cur, league_id, token)
@@ -74,14 +75,16 @@ def build_all_description_tables(cur, league_ids, token):
         insert_season(cur, season_id, token)
 
         #Get most recent 
+        
         teams = get_teams_for_season(season_id, token)
         print("Teams in season", season_id, ":", len(teams))
 
         #Description Table for all teams in the league
         for team in teams:
             team_id = team["id"]
-            insert_team(cur, team_id, league_id, token)
-
+            if team_id not in seen_team_ids:
+                insert_team(cur, team_id, league_id, token)
+                seen_team_ids.add(team_id)
 
         player_ids = get_league_season_players(league_id, token)
         print("Players in league", league_id, ":", len(player_ids))
