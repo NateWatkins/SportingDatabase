@@ -98,13 +98,10 @@ def build_all_description_tables(cur, league_ids, token):
 
 
 
-
-# print(get_player_season_row_detail(player_id,season_id, token))
+print(get_player_season_row_detail(player_id,season_id, token))
 
 # upload_player_seasons_stats(cur, 52296, token)
-build_all_description_tables(cur,league_ids,token)
-
-
+# build_all_description_tables(cur,league_ids,token)
 
 
 conn.commit()
