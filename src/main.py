@@ -68,10 +68,10 @@ conn = connect_db(
 cur = conn.cursor()
 
 
-league_ids = [8]
+league_ids = [5]
 
 
-def build_all_description_tables(cur, league_ids, token):
+def build_all_description_tables(conn,cur, league_ids, token):
     seen_team_ids = set()
     for league_id in league_ids:
         #league description
@@ -101,6 +101,7 @@ def build_all_description_tables(cur, league_ids, token):
             insert_player(cur,player_id,token)
             upload_player_seasons_stats(cur,player_id,token)
             print(f"_____-----__--__--_--_--_--_--__-__-__- Finished Player: {player_id}")
+            conn.commit()
         print("Finished league:", league_id)
 
 
@@ -108,7 +109,7 @@ def build_all_description_tables(cur, league_ids, token):
 # print(get_player_season_row_detail(player_id,season_id, token))
 
 # upload_player_seasons_stats(cur, 52296, token)
-build_all_description_tables(cur,league_ids,token)
+build_all_description_tables(conn,cur,league_ids,token)
 # insert_player_season(cur,player_id,season_id,token, 8)
 
 
