@@ -101,11 +101,15 @@ SEASON_INSERT = """
 
 def insert_player_season(cur, player_id, season_id, token,league_id):
     team_id, row = get_player_season_row(player_id, season_id, token)
+    print(row)
+    print("lkasjd;flkajsd;lfkjasd;lfkjas;dlfkjas;dlkfjas;ldfkjas;dlfkjas;ldkfj")
     insert_team(cur,team_id,league_id,token)
     params = [player_id, season_id, team_id] + row[1:]
     cur.execute(PLAYER_SEASON_INSERT, params)
+    print(params)
 
-def upload_player_seasons_stats(cur,conn, player_id, token):
+
+def upload_player_seasons_stats(cur, player_id, token):
     season_list = get_player_season_list(player_id, token)
     for season_id in season_list:
         league_id = get_league_for_season(season_id, token)
@@ -122,6 +126,13 @@ def upload_player_seasons_stats(cur,conn, player_id, token):
 
 if __name__ == "__main__":
     conn = connect_db("postgres", "natwat", "")  #    conn = connect_db("your_db_name", "your_user", "your_password")
+    conn = connect_db(
+    db_name="postgres",  # or your actual DB name
+    user="eval_master",
+    password="appl3pid11",
+    host="player-eval-dev.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
+    port="5432"
+)
     cur = conn.cursor()
     cur.execute("SELECT 1;")
     print("Test query result:", cur.fetchone())

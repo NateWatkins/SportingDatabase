@@ -69,7 +69,6 @@ def get_player_season_row(player_id, season_id, token):
     url = build_player_season_stats_url(player_id, season_id)
     response = send_request(url)
     data = response
-    print(url)
     team_id = response['data']['statistics'][0]['team_id']
     details = data["data"]["statistics"][0]["details"]
     stats = {}
@@ -96,7 +95,7 @@ def get_player_season_row(player_id, season_id, token):
     row = [
         season_id,
         stats.get("appearances"),
-        stats.get("minutes_played"),
+        stats.get("minutes-played"),
         stats.get("goals"),
         stats.get("shots-total"),
         stats.get("shots-on-target"),
@@ -467,3 +466,7 @@ if __name__ == "__main__":
         print("ERROR:", e)
 
     print("\n=== ALL TESTS COMPLETED ===")
+
+
+
+
