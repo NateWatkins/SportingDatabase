@@ -33,7 +33,7 @@ def connect_db(db_name, user, password, host="localhost", port="5432"):
             host=host,
             port=port
         )
-        print("PostgreSQL connection established.")
+        print("Cloud connection established.")
         return conn
 
     except psycopg2.Error as e:
@@ -102,7 +102,7 @@ SEASON_INSERT = """
 def insert_player_season(cur, player_id, season_id, token,league_id):
     team_id, row = get_player_season_row(player_id, season_id, token)
     print(row)
-    print("lkasjd;flkajsd;lfkjasd;lfkjas;dlfkjas;dlkfjas;ldfkjas;dlfkjas;ldkfj")
+    print("PLAYER_SEASON:", "player_id", player_id, "season_id", season_id, "team_id", team_id, "row0", row[0] if row else None, "len(row)", len(row))
     insert_team(cur,team_id,league_id,token)
     params = [player_id, season_id, team_id] + row[1:]
     cur.execute(PLAYER_SEASON_INSERT, params)
@@ -125,14 +125,15 @@ def upload_player_seasons_stats(cur, player_id, token):
 
 
 if __name__ == "__main__":
-    conn = connect_db("postgres", "natwat", "")  #    conn = connect_db("your_db_name", "your_user", "your_password")
+    # conn = connect_db("anderlecht_scouting", "scout_admin", "XUEcCysdfMNEh8Y")  #    conn = connect_db("your_db_name", "your_user", "your_password")
     conn = connect_db(
-    db_name="postgres",  # or your actual DB name
-    user="eval_master",
-    password="appl3pid11",
-    host="player-eval-dev.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
+    db_name="anderlecht_scouting",  # or your actual DB name
+    user="scout_admin",
+    password="XUEcCysdfMNEh8Y",
+    host="anderlecht-brazil-scouting.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
     port="5432"
 )
+    
     cur = conn.cursor()
     cur.execute("SELECT 1;")
     print("Test query result:", cur.fetchone())

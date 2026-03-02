@@ -118,13 +118,13 @@ def create_tables(conn):
     print("Tables created (or already existed).")
 
 if __name__ == "__main__":
-    conn = connect_db("postgres", "natwat", "")
     conn = connect_db(
-    db_name="postgres",  # or your actual DB name
-    user="eval_master",
-    password="appl3pid11",
-    host="player-eval-dev.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
-    port="5432")
+    db_name="anderlecht_scouting",  # or your actual DB name
+    user="scout_admin",
+    password="XUEcCysdfMNEh8Y",
+    host="anderlecht-brazil-scouting.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
+    port="5432"
+)
     reset_tables(conn)
     create_tables(conn)
     conn.close()

@@ -18,8 +18,8 @@ token = env.get("SPORTMONKS_API_TOKEN")
 ###-----------------------------------------------------------
 
 
-league_ids = [8,564,301,384,82,208,72,74,779,462]
-
+[8,564,301,384,82,208,72,74,779,462]
+league_ids = [648]
 
 ##Ten Leagues In each pick one and plug into league_id's
 [8,564,301,384,82,208,72,74,779,462]
@@ -42,10 +42,10 @@ league_ids = [8,564,301,384,82,208,72,74,779,462]
 
 # conn = connect_db("postgres", "natwat", "")
 conn = connect_db(
-    db_name="postgres",  # or your actual DB name
-    user="eval_master",
-    password="appl3pid11",
-    host="player-eval-dev.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
+    db_name="anderlecht_scouting",  # or your actual DB name
+    user="scout_admin",
+    password="XUEcCysdfMNEh8Y",
+    host="anderlecht-brazil-scouting.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
     port="5432"
 )
 cur = conn.cursor()
@@ -81,6 +81,7 @@ def build_all_description_tables(conn,cur, league_ids, token):
         #Description table for all players
         for player_id in player_ids:
             insert_player(cur,player_id,token)
+            
             upload_player_seasons_stats(cur,player_id,token)
             print(f"_____-----__--__--_--_--_--_--__-__-__- Finished Player: {player_id}")
             conn.commit()
@@ -105,8 +106,8 @@ def build_season_stat_list(player_id, season_list,token):
 # print(build_season_stat_list(player_id, player_seasons, token))
 
 
-# upload_player_seasons_stats(cur, 52296, token)
-build_all_description_tables(conn,cur,league_ids,token)
+upload_player_seasons_stats(cur, 52296, token)
+# build_all_description_tables(conn,cur,league_ids,token)
 # insert_player_season(cur,player_id,season_id,token, 8)
 
 conn.commit()
