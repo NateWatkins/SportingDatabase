@@ -3,8 +3,8 @@
 import psycopg2
 import sys
 from funcHelper import get_player_season_list, get_player_season_row,insert_season,get_league_for_season,insert_league,insert_team
-
-
+import env
+env.load()
 # connect_db(db_name, user, password, host="localhost", port="5432") -> conn
 #     # Opens a PostgreSQL connection; called once at startup before any DB work.
 
@@ -31,7 +31,9 @@ def connect_db(db_name, user, password, host="localhost", port="5432"):
             user=user,
             password=password,
             host=host,
-            port=port
+            port=port,
+            sslmode="require",  # required for AWS RDS
+            connect_timeout=5
         )
         print("Cloud connection established.")
         return conn
@@ -101,12 +103,11 @@ SEASON_INSERT = """
 
 def insert_player_season(cur, player_id, season_id, token,league_id):
     team_id, row = get_player_season_row(player_id, season_id, token)
-    print(row)
-    print("PLAYER_SEASON:", "player_id", player_id, "season_id", season_id, "team_id", team_id, "row0", row[0] if row else None, "len(row)", len(row))
+    # print("PLAYER_SEASON:", "player_id", player_id, "season_id", season_id, "team_id", team_id, "row0", row[0] if row else None, "len(row)", len(row))
     insert_team(cur,team_id,league_id,token)
     params = [player_id, season_id, team_id] + row[1:]
     cur.execute(PLAYER_SEASON_INSERT, params)
-    print(params)
+    # print(params)
 
 
 def upload_player_seasons_stats(cur, player_id, token):
@@ -120,18 +121,22 @@ def upload_player_seasons_stats(cur, player_id, token):
         
 
 
+token = env.get("SPORTMONKS_API_TOKEN")
+envPassword= env.get("T_DB_PASSWORD")
+envHost=env.get("T_DB_HOST") 
+envPort=env.get("T_DB_PORT")
+envDBName=env.get("T_DB_NAME")
 
-
-
+print(envDBName, envHost, envPort, envPassword)
 
 if __name__ == "__main__":
     # conn = connect_db("anderlecht_scouting", "scout_admin", "XUEcCysdfMNEh8Y")  #    conn = connect_db("your_db_name", "your_user", "your_password")
     conn = connect_db(
-    db_name="anderlecht_scouting",  # or your actual DB name
-    user="scout_admin",
-    password="XUEcCysdfMNEh8Y",
-    host="anderlecht-brazil-scouting.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
-    port="5432"
+    db_name=envDBName,  # or your actual DB name
+    user="postgres",
+    password=envPassword,
+    host=envHost,
+    port=envPort
 )
     
     cur = conn.cursor()

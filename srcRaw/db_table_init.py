@@ -1,6 +1,7 @@
 # create_tables.py
 from dbhelper import connect_db
-
+import env
+env.load()
 
 
 def reset_tables(conn):
@@ -117,13 +118,19 @@ def create_tables(conn):
     cur.close()
     print("Tables created (or already existed).")
 
+envPassword= env.get("T_DB_PASSWORD")
+envHost=env.get("T_DB_HOST") 
+envPort=env.get("T_DB_PORT")
+envDBName=env.get("T_DB_NAME")
+
+
 if __name__ == "__main__":
     conn = connect_db(
-    db_name="anderlecht_scouting",  # or your actual DB name
-    user="scout_admin",
-    password="XUEcCysdfMNEh8Y",
-    host="anderlecht-brazil-scouting.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
-    port="5432"
+    db_name=envDBName,  # or your actual DB name
+    user="postgres",
+    password=envPassword,
+    host=envHost,
+    port=envPort
 )
     reset_tables(conn)
     create_tables(conn)

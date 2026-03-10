@@ -7,9 +7,15 @@ from dbhelper import upload_player_seasons_stats,insert_player_season
 from dbhelper import connect_db
 
 token = env.get("SPORTMONKS_API_TOKEN")
+# envPassword= env.get("DB_PASSWORD")
+# envHost=env.get("DB_HOST") 
+# envPort=env.get("DB_PORT")
+# envDBName=env.get("DB_NAME")
 
-
-
+envPassword= env.get("T_DB_PASSWORD")
+envHost=env.get("T_DB_HOST") 
+envPort=env.get("T_DB_PORT")
+envDBName=env.get("T_DB_NAME")
 
 
 
@@ -42,11 +48,11 @@ league_ids = [648]
 
 # conn = connect_db("postgres", "natwat", "")
 conn = connect_db(
-    db_name="anderlecht_scouting",  # or your actual DB name
-    user="scout_admin",
-    password="XUEcCysdfMNEh8Y",
-    host="anderlecht-brazil-scouting.cp6si6q8kkrb.us-west-1.rds.amazonaws.com",
-    port="5432"
+    db_name=envDBName,  # or your actual DB name
+    user="postgres",
+    password=envPassword,
+    host=envHost,
+    port=envPort
 )
 cur = conn.cursor()
 
@@ -77,13 +83,13 @@ def build_all_description_tables(conn,cur, league_ids, token):
 
         player_ids = get_league_season_players(league_id, token)
         print("Players in league", league_id, ":", len(player_ids))
-
+        processed = 0
         #Description table for all players
         for player_id in player_ids:
             insert_player(cur,player_id,token)
-            
+            processed += 1
             upload_player_seasons_stats(cur,player_id,token)
-            print(f"_____-----__--__--_--_--_--_--__-__-__- Finished Player: {player_id}")
+            print(f"[{processed}/{len(player_ids)}] Finished Player: {player_id}")
             conn.commit()
         print("Finished league:", league_id)
 
@@ -106,8 +112,8 @@ def build_season_stat_list(player_id, season_list,token):
 # print(build_season_stat_list(player_id, player_seasons, token))
 
 
-upload_player_seasons_stats(cur, 52296, token)
-# build_all_description_tables(conn,cur,league_ids,token)
+#upload_player_seasons_stats(cur, 52296, token)
+build_all_description_tables(conn,cur,league_ids,token)
 # insert_player_season(cur,player_id,season_id,token, 8)
 
 conn.commit()
