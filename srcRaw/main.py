@@ -61,6 +61,10 @@ cur = conn.cursor()
 
 def build_all_description_tables(conn,cur, league_ids, token):
     seen_team_ids = set()
+    seen_league_ids = set()
+    seen_season_ids = set()
+    processed = 0
+    BATCHSIZE = 10
     for league_id in league_ids:
         #league description
         insert_league(cur, league_id, token)
@@ -73,7 +77,7 @@ def build_all_description_tables(conn,cur, league_ids, token):
         
         teams = get_teams_for_season(season_id, token)
         print("Teams in season", season_id, ":", len(teams))
-
+        
         #Description Table for all teams in the league
         for team in teams:
             team_id = team["id"]
@@ -83,14 +87,15 @@ def build_all_description_tables(conn,cur, league_ids, token):
 
         player_ids = get_league_season_players(league_id, token)
         print("Players in league", league_id, ":", len(player_ids))
-        processed = 0
         #Description table for all players
         for player_id in player_ids:
             insert_player(cur,player_id,token)
             processed += 1
             upload_player_seasons_stats(cur,player_id,token)
             print(f"[{processed}/{len(player_ids)}] Finished Player: {player_id}")
-            conn.commit()
+            if processed % BATCHSIZE == 0:
+                conn.commit()
+
         print("Finished league:", league_id)
 
 
