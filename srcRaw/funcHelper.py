@@ -294,7 +294,7 @@ def get_league_description_row(league_id, token):
 def insert_league(cur, league_id, token,country_id = None):
     row = get_league_description_row(league_id, token)
     cur.execute(LEAGUE_INSERT, row)
-    print("inserted league", league_id, country_id)
+    print("inserted league", league_id, row[2])
 ##League Description Table
 ##-----------------------
 ##Season Description Table
