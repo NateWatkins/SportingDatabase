@@ -117,7 +117,6 @@ def upload_player_seasons_stats(cur, player_id, token):
         insert_league(cur, league_id, token)  
         insert_season(cur,season_id,token)
         insert_player_season(cur, player_id, season_id, token,league_id)
-        print(f"__--__--_- Finished Player - {player_id} ---- Season - {season_id}")
         
 
 
