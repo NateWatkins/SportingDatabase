@@ -101,22 +101,23 @@ SEASON_INSERT = """
 
 
 
-def insert_player_season(cur, player_id, season_id, token,league_id):
-    team_id, row = get_player_season_row(player_id, season_id, token)
-    # print("PLAYER_SEASON:", "player_id", player_id, "season_id", season_id, "team_id", team_id, "row0", row[0] if row else None, "len(row)", len(row))
-    insert_team(cur,team_id,league_id,token)
+def insert_player_season(cur, player_id, season_id, token, league_id, caches):
+    ps_key = (player_id, season_id)
+    if ps_key in caches["seen_player_season_ids"]:
+        return
+    team_id, row = get_player_season_row(player_id, season_id, token, caches)
+    insert_team(cur, team_id, league_id, token, caches)
     params = [player_id, season_id, team_id] + row[1:]
     cur.execute(PLAYER_SEASON_INSERT, params)
-    # print(params)
+    caches["seen_player_season_ids"].add(ps_key)
 
-
-def upload_player_seasons_stats(cur, player_id, token):
-    season_list = get_player_season_list(player_id, token)
+def upload_player_seasons_stats(cur, player_id, token, caches):
+    season_list = get_player_season_list(player_id, token, caches)
     for season_id in season_list:
-        league_id = get_league_for_season(season_id, token)
-        insert_league(cur, league_id, token)  
-        insert_season(cur,season_id,token)
-        insert_player_season(cur, player_id, season_id, token,league_id)
+        league_id = get_league_for_season(season_id, token, caches)
+        insert_league(cur, league_id, token, caches)
+        insert_season(cur, season_id, token, caches)
+        insert_player_season(cur, player_id, season_id, token, league_id, caches)
         
 
 

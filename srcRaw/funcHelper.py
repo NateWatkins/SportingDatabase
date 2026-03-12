@@ -65,7 +65,11 @@ def build_team_squad_url(team_id, season_id):
 ###------ API Caller's -------------
 
 
-def get_player_season_row(player_id, season_id, token):
+def get_player_season_row(player_id, season_id, token,caches):
+    key = (player_id, season_id)
+    if key in caches["player_season_row"]:
+        return caches["player_season_row"][key]
+
     url = build_player_season_stats_url(player_id, season_id)
     response = send_request(url)
     data = response
@@ -132,58 +136,66 @@ def get_player_season_row(player_id, season_id, token):
         avg_points,
         crosses_blocked
     ]
+    caches["player_season_row"][key] = (team_id, row)
     return team_id, row
 
 #League -> most recent season_id
-def get_most_recent_season(league_id, token):
+def get_teams_for_season(season_id, token, caches):
+    if season_id in caches["teams_for_season"]:
+        return caches["teams_for_season"][season_id]
 
-    url = build_league_seasons_url(league_id)
-    response = send_request(url)
-    data = response["data"]
-
-    seasons = data.get("seasons", []) or []
-    if not seasons:
-        raise ValueError(f"No seasons found for league {league_id}")
-
-    # try end_date, fall back to ending_at if needed
-    def season_key(s):
-        return s.get("end_date") or s.get("ending_at") or ""
-
-    most_recent = max(seasons, key=season_key)
-    return most_recent["id"]
-
-#Season -> list of team dicts
-def get_teams_for_season(season_id, token):
-    """
-    Season -> list of team dicts
-    """
     url = build_teams_by_season_url(season_id)
     response = send_request(url)
-    return response.get("data", [])  # list of teams
+    teams = response.get("data", [])
+
+    caches["teams_for_season"][season_id] = teams
+    return teams
+
+#Season -> list of team dicts
+def get_teams_for_season(season_id, token, caches):
+    if season_id in caches["teams_for_season"]:
+        return caches["teams_for_season"][season_id]
+
+    url = build_teams_by_season_url(season_id)
+    response = send_request(url)
+    teams = response.get("data", [])
+
+    caches["teams_for_season"][season_id] = teams
+    return teams
 
 #Team + Season -> list of player_ids in that squad
-def get_team_squad_player_ids(team_id, season_id, token):
+def get_team_squad_player_ids(team_id, season_id, token, caches):
+    key = (team_id, season_id)
+    if key in caches["team_squad_players"]:
+        return caches["team_squad_players"][key]
 
     url = build_team_squad_url(team_id, season_id)
     response = send_request(url)
     rows = response.get("data", []) or []
-    return [row["player_id"] for row in rows]
+    player_ids = [row["player_id"] for row in rows]
+
+    caches["team_squad_players"][key] = player_ids
+    return player_ids
 
 #League -> (current season) -> (all teams) -> (all squad player_ids)
-def get_league_season_players(league_id, token):
+def get_league_season_players(league_id, token, caches):
+    if league_id in caches["league_season_players"]:
+        return caches["league_season_players"][league_id]
 
-    season_id = get_most_recent_season(league_id, token)
-    teams = get_teams_for_season(season_id, token)
+    season_id = get_most_recent_season(league_id, token, caches)
+    teams = get_teams_for_season(season_id, token, caches)
 
     player_ids = set()
 
     for team in teams:
         team_id = team["id"]
-        squad_players = get_team_squad_player_ids(team_id, season_id, token)
+        squad_players = get_team_squad_player_ids(team_id, season_id, token, caches)
         for pid in squad_players:
             player_ids.add(pid)
 
-    return list(player_ids)
+    result = list(player_ids)
+    caches["league_season_players"][league_id] = result
+    return result
 
 
 ###---------------------------------
@@ -241,34 +253,71 @@ TEAM_INSERT = """
 ##--------Inserts--------------------
 ##----------------------
 ##Player Description Table
-def insert_player(cur, player_id, token):
-    row = get_player_description_row(player_id, token)
+def insert_player(cur, player_id, token, caches):
+    row = get_player_description_row(player_id, token, caches)
     cur.execute(PLAYER_INSERT, row)
-    print("executed")
-def get_player_description_row(player_id, token):
+
+def insert_league(cur, league_id, token, caches, country_id=None):
+    row = get_league_description_row(league_id, token, caches)
+    cur.execute(LEAGUE_INSERT, row)
+
+def insert_season(cur, season_id, token, caches):
+    row = get_season_description_row(season_id, token, caches)
+    cur.execute(SEASON_INSERT, row)
+
+def insert_team(cur, team_id, league_id, token, caches):
+    row = get_team_description_row(team_id, league_id, token, caches)
+    cur.execute(TEAM_INSERT, row)
+
+
+
+def get_player_description_row(player_id, token, caches):
+    if player_id in caches["player_desc"]:
+        return caches["player_desc"][player_id]
+
     url = build_player_description_url(player_id)
     response = send_request(url)
     data = response["data"]
-    
-    player_id   = data["id"]
-    first_name  = data.get("firstname")
-    last_name   = data.get("lastname")
+
+    player_id = data["id"]
+    first_name = data.get("firstname")
+    last_name = data.get("lastname")
     display_name = data.get("display_name") or data.get("name")
-    
+
     country_data = data.get("nationality_id")
-    print("____----------______-----___---__---_---_--__")
-    print(data)
-    print("_------__----_--__--_--_______---__--_--_--_-")
     if isinstance(country_data, dict):
         country_data = country_data.get("name")
 
-    return [
+    row = [
         player_id,
         first_name,
         last_name,
         display_name,
         country_data,
     ]
+
+    caches["player_desc"][player_id] = row
+    return row
+
+
+def get_most_recent_season(league_id, token, caches):
+
+    url = build_league_seasons_url(league_id)
+    response = send_request(url)
+    data = response["data"]
+
+    seasons = data.get("seasons", []) or []
+    if not seasons:
+        raise ValueError(f"No seasons found for league {league_id}")
+
+    # try end_date, fall back to ending_at if needed
+    def season_key(s):
+        return s.get("end_date") or s.get("ending_at") or ""
+
+    most_recent = max(seasons, key=season_key)
+    return most_recent["id"]
+
+
 ##Player Desription table
 ##--------------------
 ##League Description Table
@@ -277,24 +326,25 @@ def build_league_description_url(league_id):
     include = None
     filters = None
     return build_url(base, resource, token, include, filters)
-def get_league_description_row(league_id, token):
+
+
+def get_league_description_row(league_id, token, caches):
+    if league_id in caches["league_desc"]:
+        return caches["league_desc"][league_id]
+
     url = build_league_description_url(league_id)
     response = send_request(url)
     data = response["data"]
 
-    league_id  = data["id"]
-    name       = data.get("name")
-    country_id = data.get("country_id")  # raw ID, may be None
-
-    return [
-        league_id,
-        name,
-        country_id,
+    row = [
+        data["id"],
+        data.get("name"),
+        data.get("country_id"),
     ]
-def insert_league(cur, league_id, token,country_id = None):
-    row = get_league_description_row(league_id, token)
-    cur.execute(LEAGUE_INSERT, row)
-    print("inserted league", league_id, row[2])
+
+    caches["league_desc"][league_id] = row
+    return row
+
 ##League Description Table
 ##-----------------------
 ##Season Description Table
@@ -304,29 +354,27 @@ def build_season_description_url(season_id):
     include = None
     filters = None
     return build_url(base, resource, token, include, filters)
-def get_season_description_row(season_id, token):
+
+
+def get_season_description_row(season_id, token, caches):
+    if season_id in caches["season_desc"]:
+        return caches["season_desc"][season_id]
+
     url = build_season_description_url(season_id)
     response = send_request(url)
     data = response["data"]
 
-    season_id  = data["id"]
-    league_id  = data.get("league_id")
-    name       = data.get("name")
-    # Sportmonks uses starting_at / ending_at timestamps – you can store as DATE or TIMESTAMP
-    start_date = data.get("starting_at")
-    end_date   = data.get("ending_at")
-
-    return [
-        season_id,
-        league_id,
-        name,
-        start_date,
-        end_date,
+    row = [
+        data["id"],
+        data.get("league_id"),
+        data.get("name"),
+        data.get("starting_at"),
+        data.get("ending_at"),
     ]
-def insert_season(cur, season_id, token):
-    row = get_season_description_row(season_id, token)
-    cur.execute(SEASON_INSERT, row)
-    print("inserted season", season_id)
+
+    caches["season_desc"][season_id] = row
+    return row
+
 ##Season Description Table
 ##---------------------
 ##Team Description Table
@@ -335,25 +383,23 @@ def build_team_description_url(team_id):
     include = None
     filters = None
     return build_url(base, resource, token, include, filters)
-def get_team_description_row(team_id, league_id, token):
+def get_team_description_row(team_id, league_id, token, caches):
+    key = (team_id, league_id)
+    if key in caches["team_desc"]:
+        return caches["team_desc"][key]
+
     url = build_team_description_url(team_id)
-    print("This is url" + url)
     response = send_request(url)
     data = response["data"]
 
-    team_id   = data["id"]
-    name      = data.get("name")
-
-    # league_id comes from the caller (you already know what league you're loading)
-    return [
-        team_id,
-        name,
+    row = [
+        data["id"],
+        data.get("name"),
         league_id,
     ]
-def insert_team(cur, team_id, league_id, token):
-    row = get_team_description_row(team_id, league_id, token)
-    cur.execute(TEAM_INSERT, row)
-    print("inserted team", team_id)
+
+    caches["team_desc"][key] = row
+    return row
 
 ##Team Description Table
 ##--------------------
@@ -408,22 +454,34 @@ def build_season_list(data):
 
     return season_list
 
-def get_league_for_season(season_id, token):
+def get_league_for_season(season_id, token, caches):
+    if season_id in caches["league_for_season"]:
+        return caches["league_for_season"][season_id]
+
     url = build_url(
         base="https://api.sportmonks.com/v3/football/",
         resource=f"seasons/{season_id}",
         token=token
     )
     resp = send_request(url)
-    return resp["data"]["league_id"]
+    league_id = resp["data"]["league_id"]
+
+    caches["league_for_season"][season_id] = league_id
+    return league_id
 
 
 
-def get_player_season_list(player_id, token):
+def get_player_season_list(player_id, token, caches):
+    if player_id in caches["player_season_list"]:
+        return caches["player_season_list"][player_id]
+
     url = build_player_season_stats_url(player_id)
     response = send_request(url)
-    data = response
-    return build_season_list(data)
+    season_list = build_season_list(response)
+
+    caches["player_season_list"][player_id] = season_list
+    return season_list
+
 
 
 if __name__ == "__main__":

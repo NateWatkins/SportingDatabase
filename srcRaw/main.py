@@ -5,7 +5,7 @@ env.load()
 import json
 from dbhelper import upload_player_seasons_stats,insert_player_season
 from dbhelper import connect_db
-
+import time 
 token = env.get("SPORTMONKS_API_TOKEN")
 # envPassword= env.get("DB_PASSWORD")
 # envHost=env.get("DB_HOST") 
@@ -58,45 +58,97 @@ cur = conn.cursor()
 
 
 
+def make_caches():
+    return {
+        "player_desc": {},
+        "league_desc": {},
+        "season_desc": {},
+        "team_desc": {},
 
-def build_all_description_tables(conn,cur, league_ids, token):
-    seen_team_ids = set()
+        "most_recent_season": {},
+        "teams_for_season": {},
+        "team_squad_players": {},
+        "league_season_players": {},
+
+        "player_season_list": {},
+        "league_for_season": {},
+        "player_season_row": {},
+        "seen_player_season_ids": set()
+    }
+
+
+
+
+def build_all_description_tables(conn, cur, league_ids, token):
+    caches = make_caches()
+
     seen_league_ids = set()
     seen_season_ids = set()
-    processed = 0
+    seen_team_ids = set()
+    seen_player_ids = set()
+    uploaded_player_stats = set()
+
+    total_processed = 0
     BATCHSIZE = 10
+
     for league_id in league_ids:
-        #league description
-        insert_league(cur, league_id, token)
+        print(f"\n===== LEAGUE START {league_id} =====")
+        league_processed = 0
 
-        #Get most recent season_id to build lineup -> Add to description table now
-        season_id = get_most_recent_season(league_id, token)
-        insert_season(cur, season_id, token)
+        try:
+            if league_id not in seen_league_ids:
+                insert_league(cur, league_id, token, caches)
+                seen_league_ids.add(league_id)
 
-        #Get most recent 
-        
-        teams = get_teams_for_season(season_id, token)
-        print("Teams in season", season_id, ":", len(teams))
-        
-        #Description Table for all teams in the league
-        for team in teams:
-            team_id = team["id"]
-            if team_id not in seen_team_ids:
-                insert_team(cur, team_id, league_id, token)
-                seen_team_ids.add(team_id)
+            season_id = get_most_recent_season(league_id, token, caches)
 
-        player_ids = get_league_season_players(league_id, token)
-        print("Players in league", league_id, ":", len(player_ids))
-        #Description table for all players
-        for player_id in player_ids:
-            insert_player(cur,player_id,token)
-            processed += 1
-            upload_player_seasons_stats(cur,player_id,token)
-            print(f"[{processed}/{len(player_ids)}] Finished Player: {player_id}")
-            if processed % BATCHSIZE == 0:
-                conn.commit()
+            if season_id not in seen_season_ids:
+                insert_season(cur, season_id, token, caches)
+                seen_season_ids.add(season_id)
 
-        print("Finished league:", league_id)
+            teams = get_teams_for_season(season_id, token, caches)
+            print(f"[LEAGUE {league_id}] Teams in season {season_id}: {len(teams)}")
+
+            for team in teams:
+                team_id = team["id"]
+                if team_id not in seen_team_ids:
+                    insert_team(cur, team_id, league_id, token, caches)
+                    seen_team_ids.add(team_id)
+
+            player_ids = get_league_season_players(league_id, token, caches)
+            print(f"[LEAGUE {league_id}] Players: {len(player_ids)}")
+
+            for player_id in player_ids:
+                try:
+                    if player_id not in seen_player_ids:
+                        insert_player(cur, player_id, token, caches)
+                        seen_player_ids.add(player_id)
+
+                    if player_id not in uploaded_player_stats:
+                        upload_player_seasons_stats(cur, player_id, token, caches)
+                        uploaded_player_stats.add(player_id)
+
+                    total_processed += 1
+                    league_processed += 1
+
+                    print(f"[LEAGUE {league_id}] [{league_processed}/{len(player_ids)}] Finished player {player_id}")
+
+                    if total_processed % BATCHSIZE == 0:
+                        conn.commit()
+                        print(f"[COMMIT] total_processed={total_processed}")
+                    time.sleep(0.1)
+                except Exception as e:
+                    conn.rollback()
+                    print(f"[ERROR] league_id={league_id} player_id={player_id} error={e}")
+
+            print(f"===== LEAGUE COMPLETE {league_id} =====")
+
+        except Exception as e:
+            conn.rollback()
+            print(f"[LEAGUE ERROR] league_id={league_id} error={e}")
+
+    conn.commit()
+    print(f"\nRUN COMPLETE | total players processed: {total_processed}")
 
 
 
