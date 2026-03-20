@@ -23,13 +23,12 @@ envDBName=env.get("T_DB_NAME")
 ###-----------------------------------------------------------
 ###-----------------------------------------------------------
 
-
+[648]
 [8,564,301,384,82,208,72,74,779,462]
-league_ids = [648]
 
 ##Ten Leagues In each pick one and plug into league_id's
 [8,564,301,384,82,208,72,74,779,462]
-[648,651,636,968,791,1607,27,304,310,85]
+league_ids = [27,304,310,85]
 [9,573,444,944,181,387,453,262,244,672,675]
 
 
@@ -138,6 +137,8 @@ def build_all_description_tables(conn, cur, league_ids, token):
                         print(f"[COMMIT] total_processed={total_processed}")
                     time.sleep(0.1)
                 except Exception as e:
+                    league_processed += 1
+
                     conn.rollback()
                     print(f"[ERROR] league_id={league_id} player_id={player_id} error={e}")
 

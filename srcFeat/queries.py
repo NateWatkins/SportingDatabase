@@ -1,5 +1,5 @@
 import sys
-from srcRaw.dbhelper import connect_db
+from main import connect_db
 import pandas as pd
 
 
